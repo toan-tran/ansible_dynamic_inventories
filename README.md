@@ -6,6 +6,7 @@ This project provides scripts that dynamically generate Ansible inventory
 content from OpenStack virtual machines.
 
 Change that will be modified in near future:
+
   - Script uses instances UUID as their identity.
   - Keys are located in current folder
 
