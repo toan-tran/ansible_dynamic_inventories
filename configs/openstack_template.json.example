@@ -1,0 +1,13 @@
+{
+  "webservices": {
+    "children": ["apache2", "storage_nodes"],
+    "vars": {
+        "mysql_port": 3306,
+        "web_port": 80,
+        "ftp_port": 21
+    }
+  },
+  "storage_nodes": {
+    "children": ["mysql", "ftpserver"]
+  }
+}

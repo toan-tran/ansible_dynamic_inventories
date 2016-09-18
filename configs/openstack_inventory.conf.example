@@ -1,0 +1,19 @@
+[Default]
+# Host indicator: field to use as host ID.
+# Choice: id, name. Default is id
+host_indicator = id
+
+[Authentication]
+# OpenStack authentication credentials
+# Will be overriden by environment variables
+os_username = my_username
+os_tenant_name = my_project
+os_tenant_id = f55ac58135268ce7867511a365ab2568
+os_auth_url = https://keystone:5000/v2.0
+os_password = my_secret_password
+
+[Template]
+# Additional inventory information can be added into a JSON file
+# It is recommended to put all static information (e.g. group hierarchy,
+# group variables) into a JSON and keep minimal information on OpenStack's VMs
+template_file = ~/.ansible/openstack_template.json
