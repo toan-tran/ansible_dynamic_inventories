@@ -130,7 +130,7 @@ def get_inventory(configs):
             variables['ansible_host'] = address
             variables['ansible_hostname'] = s.name
             for key, value in s.metadata.items():
-                if ((not key.startswith('ansible_')) and (key != 'ansible_groups')):
+                if (key.startswith('ansible_') and (key != 'ansible_groups')):
                     variables[key] = value
             inventory["_meta"]["hostvars"][ansible_host] = variables
     return inventory
