@@ -1,7 +1,24 @@
 [Default]
 # Host indicator: field to use as host ID.
 # Choice: id, name. Default is id
+# Default is "id"
 host_indicator = id
+
+# Namespace of the metadata to use as variables for Ansible
+# When user wants to put a host variable
+#   key: value
+# to a VM, he must set the VM's metadata as follows:
+# <metadata_namespace>key=value
+# For instance:
+# metadata_namespace = "myplatform:"
+# VM's Metadata:
+#   myplatform:ansible_user=ubuntu
+# Default is "ansible:"
+metadata_namespace = "ansible:"
+
+# Key folder containing all the keys
+# Default value is "." (current folder)
+# key_folder = .
 
 [Authentication]
 # OpenStack authentication credentials

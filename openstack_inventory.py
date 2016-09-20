@@ -33,6 +33,9 @@ CONF_FILES = [".ansible/openstack_inventory.conf",
 
 HOST_INDICATORS = ["id", "name"]
 
+DEFAULT_METADATA_NAMESPACE = "ansible:"
+
+DEFAULT_KEY_FOLDER = "."
 
 def get_config():
     """Get configs from known locations.
@@ -58,7 +61,7 @@ def get_template(configs):
                  }}
     if "Template" in configs:
         if "template_file" in configs["Template"]:
-            with open(os.path.expanduser(configs["Template"]["template_file"])) as f:
+            with open(os.path.abspath(os.path.expanduser(configs["Template"]["template_file"]))) as f:
                 template = json.load(f)
                 inventory.update(template)
     return inventory
@@ -71,31 +74,26 @@ def get_client(configs):
     os_auth_url = os.environ.get('OS_AUTH_URL',
                                  authentication.get('os_auth_url'))
     if not os_auth_url:
-        print "ERROR: OS_AUTH_URL is not set"
-        return None
+        raise Exception("ERROR: OS_AUTH_URL is not set")
     os_username = os.environ.get('OS_USERNAME',
                                  authentication.get('os_username'))
     if not os_username:
-        print "ERROR: OS_USERNAME is not set"
-        return None
+        raise Exception("ERROR: OS_USERNAME is not set")
     os_password = os.environ.get('OS_PASSWORD',
                                  authentication.get('os_password'))
     if not os_password:
-        print "ERROR: OS_PASSWORD is not set"
-        return None
+        raise Exception("ERROR: OS_PASSWORD is not set")
     os_tenant_id = os.environ.get('OS_TENANT_ID',
                                   authentication.get('os_tenant_id'))
     if not os_tenant_id:
-        print "ERROR: OS_TENANT_ID is not set"
-        return None
+        raise Exception("ERROR: OS_TENANT_ID is not set")
     nova = client.Client(os_version, os_username, os_password,
                          os_tenant_id, os_auth_url)
     nova.client.tenant_id = os_tenant_id
-    try:
-        nova.authenticate()
-    except Exception as e:
-        print "Error: %s" %e
-        return None
+
+    # Authenticate client.
+    # Raise exception as it is
+    nova.authenticate()
     return nova
 
 
@@ -105,17 +103,22 @@ def get_inventory(configs):
     if not nova:
         return {}
     server_list = nova.servers.list()
-    host_indicator = configs.get("Default", {}).get("host_indicator", "id")
+    default_section = configs.get("Default", {})
+    host_indicator = default_section.get("host_indicator", "id")
+    namespace = default_section.get("metadata_namespace",
+                                    DEFAULT_METADATA_NAMESPACE)
+    key_folder = default_section.get("key_folder", DEFAULT_KEY_FOLDER)
+    key_folder = os.path.abspath(os.path.expanduser(key_folder))
     if host_indicator not in HOST_INDICATORS:
-        print "ERROR: Invalid host_indicator"
-        return {}
+        raise Exception("ERROR: Invalid host_indicator")
 
     for s in server_list:
         ansible_host = getattr(s, host_indicator)
         metadata = s.metadata
+        group_key = namespace + 'groups'
         address = s.networks[s.networks.keys()[0]][0]
-        if 'ansible_groups' in s.metadata:
-            for group in s.metadata['ansible_groups'].split(','):
+        if group_key in s.metadata:
+            for group in s.metadata[group_key].split(','):
                 if group not in inventory:
                     inventory[group] = {"hosts": [ansible_host]}
                 elif "hosts" not in inventory[group]:
@@ -126,12 +129,15 @@ def get_inventory(configs):
             # Take the first address as ansible_host by default.
             # If host has more than one addresses (e.g. multiple NICs,
             # Floating IP), then user should specify host address by
-            # 'ansible_host' key in metadata
+            # '<metadata_namespace>:ansible_host' key in metadata
             variables['ansible_host'] = address
             variables['ansible_hostname'] = s.name
-            for key, value in s.metadata.items():
-                if (key.startswith('ansible_') and (key != 'ansible_groups')):
-                    variables[key] = value
+            for key, value in metadata.items():
+                if key == (namespace + "ansible_private_key_file"):
+                    variables["ansible_private_key_file"] = os.path.join(key_folder, value)
+                elif (key.startswith(namespace) and (key != group_key)):
+                    keyname = key[len(namespace):]
+                    variables[keyname] = value
             inventory["_meta"]["hostvars"][ansible_host] = variables
     return inventory
 
