@@ -1,1 +1,5 @@
+# openstack_inventory
 python-novaclient>=2.0
+
+# openstack_upload_metadata.py
+ansible >= 2.0

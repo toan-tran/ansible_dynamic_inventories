@@ -1,0 +1,23 @@
+[webservices:children]
+apache2
+storage_nodes
+
+[webservices:vars]
+mysql_port: 3306,
+web_port: 80,
+ftp_port: 21
+
+[storage_nodes:children]
+mysql
+ftpserver
+
+[apache2]
+vm-1
+vm-2
+vm-3
+
+[mysql]
+vm-4
+
+[ftpserver]
+vm-5
