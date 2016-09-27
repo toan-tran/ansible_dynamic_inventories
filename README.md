@@ -54,7 +54,6 @@ Scripts:
         -o template, --out-template template
                               Save the template of the inventory in a file
         -n, --no-update       If set, do not update metadata of the VMs
-
     ```
     
 
