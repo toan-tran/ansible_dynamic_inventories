@@ -18,6 +18,8 @@
 # After uploading metadata to VMs, the openstack_inventory can re-create
 # an inventory directly from the platform.
 #
+# This script will also create a JSON template file based on the inventory
+#
 # Why need this script: In may case, the VMs are created from another machine
 # than the Ansible (Uploader). Thus Ansible machine should not need to get the the
 # inventory file from the former. The Uploader will maintain an inventory version
@@ -31,69 +33,13 @@
 # /etc/ansible/openstack_inventory.conf
 #
 
-from ConfigParser import ConfigParser
 import os
 import sys
 
 from ansible.inventory.group import Group
 from ansible.inventory.ini import InventoryParser
-from novaclient import client
 
-CONF_FILES = [".ansible/openstack_inventory.conf",
-              "~/.ansible/openstack_inventory.conf",
-              "/etc/ansible/openstack_inventory.conf"]
-
-HOST_INDICATORS = ["id", "name"]
-
-DEFAULT_METADATA_NAMESPACE = "ansible:"
-
-DEFAULT_KEY_FOLDER = "."
-
-def get_config():
-    """Get configs from known locations.
-    If no file is present, no config is returned.
-    :return: (dict) configs
-             Empty dict if no file exists."""
-
-    for cf in CONF_FILES:
-        if os.path.exists(os.path.expanduser(cf)):
-            parser = ConfigParser()
-            configs = dict()
-            parser.read(os.path.expanduser(cf))
-            for sec in parser.sections():
-                configs[sec] = dict(parser.items(sec))
-            return configs
-    return {}
-
-
-def get_client(configs):
-    authentication = configs.get('Authentication', {})
-    os_version = os.environ.get('OS_VERSION',
-                                authentication.get('os_version',2))
-    os_auth_url = os.environ.get('OS_AUTH_URL',
-                                 authentication.get('os_auth_url'))
-    if not os_auth_url:
-        raise Exception("ERROR: OS_AUTH_URL is not set")
-    os_username = os.environ.get('OS_USERNAME',
-                                 authentication.get('os_username'))
-    if not os_username:
-        raise Exception("ERROR: OS_USERNAME is not set")
-    os_password = os.environ.get('OS_PASSWORD',
-                                 authentication.get('os_password'))
-    if not os_password:
-        raise Exception("ERROR: OS_PASSWORD is not set")
-    os_tenant_id = os.environ.get('OS_TENANT_ID',
-                                  authentication.get('os_tenant_id'))
-    if not os_tenant_id:
-        raise Exception("ERROR: OS_TENANT_ID is not set")
-    nova = client.Client(os_version, os_username, os_password,
-                         os_tenant_id, os_auth_url)
-    nova.client.tenant_id = os_tenant_id
-
-    # Authenticate client.
-    # Raise exception as it is
-    nova.authenticate()
-    return nova
+from utils import *
 
 
 def parse_inventory(filename):
@@ -156,7 +102,7 @@ def main():
     if not os.path.exists(filename):
         print "ERROR: File %s does not exists" % filename
         exit(0)
-    if os.path.isfile(filename):
+    if not os.path.isfile(filename):
         print "ERROR: %s is not a file" % filename
         exit(0)
     configs = get_config()
