@@ -47,3 +47,14 @@ Scripts:
     ```sh
     ./openstack_upload_metadata.py <inventory_file>
     ```
+
+- More options on openstack_upload_metadata.py:
+    ```sh
+    ./openstack_upload_metadata.py [-o template] [--no-update] <inventory_file>
+        -o template, --out-template template
+                              Save the template of the inventory in a file
+        -n, --no-update       If set, do not update metadata of the VMs
+
+    ```
+    
+

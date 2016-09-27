@@ -33,6 +33,7 @@
 # /etc/ansible/openstack_inventory.conf
 #
 
+import argparse
 import os
 import sys
 
@@ -92,13 +93,53 @@ def set_metadata(configs, inventory):
         for key, value in info['vars'].items():
             meta[namespace + key] = str(value)
         nova.servers.set_meta(info['server'], meta)
-        
+
+
+def make_template(inventory):
+    """Get a dictionary template from an inventory.
+    The template will contain all hierarchical informations and variables of
+    the groups, but not information of the hosts.
+    :param inventory: ansible.inventory.ini.InventoryParser
+    :return: (dict) a template of the inventory
+    """
+    template = {}
+    groups = [g for g in inventory.groups.values() if g.child_groups or g.vars]
+    for g in groups:
+        # Special case: all. Only keep variables
+        if g.name == 'all':
+            if g.vars:
+                template['all'] = {'vars': g.vars}
+            continue
+        # Special case: ungrouped. Ignore.
+        if g.name == 'ungrouped':
+            continue
+        template[g.name] = {}
+        if g.child_groups:
+            template[g.name]['children'] = [cg.name for cg in g.child_groups]
+        if g.vars:
+            template[g.name]['vars'] = g.vars
+    return template
+
+
+def get_args():
+    parser = argparse.ArgumentParser(description='OpenStack upload metadata')
+    parser.add_argument('-o', '--out-template', metavar='template', 
+                        default=None,
+                        help="Save the template of the inventory in a file")
+    parser.add_argument('inventory', help="Inventory file (INI format)")
+    parser.add_argument('-n', '--no-update', action='store_true',
+                        help="If set, do not update metadata of the VMs")
+
+    args = parser.parse_args()
+    return args
+
 
 def main():
+    args = get_args()
     if len(sys.argv) < 2:
         print "Usage: %s <inventory_filename>" % sys.argv[0]
         exit(0)
-    filename = os.path.abspath(os.path.expanduser(sys.argv[1]))
+    filename = args.inventory
     if not os.path.exists(filename):
         print "ERROR: File %s does not exists" % filename
         exit(0)
@@ -107,7 +148,14 @@ def main():
         exit(0)
     configs = get_config()
     inventory = parse_inventory(filename)
-    set_metadata(configs, inventory)
+    if args.out_template:
+        print("Generating template file %s..." % args.out_template)
+        template = make_template(inventory)
+        with open(args.out_template, 'w') as f:
+            json.dump(template, f, indent=2)
+    if not args.no_update:
+        print("Updating metadata...")
+        set_metadata(configs, inventory)
 
 
 if __name__ == "__main__":
