@@ -23,10 +23,14 @@
 
 from ConfigParser import ConfigParser
 import json
-from novaclient import client
 import os
 
-CONF_FILES = [".ansible/openstack_inventory.conf",
+from ansible.inventory.group import Group
+from ansible.inventory.ini import InventoryParser
+from novaclient import client
+
+CONF_FILES = ["openstack_inventory.conf",
+              ".ansible/openstack_inventory.conf",
               "~/.ansible/openstack_inventory.conf",
               "/etc/ansible/openstack_inventory.conf"]
 
@@ -50,6 +54,7 @@ def get_config():
             parser.read(os.path.expanduser(cf))
             for sec in parser.sections():
                 configs[sec] = dict(parser.items(sec))
+            print ("Found configuration file at: %s" % cf)
             return configs
     return {}
 
@@ -95,3 +100,40 @@ def get_client(configs):
     # Raise exception as it is
     nova.authenticate()
     return nova
+
+
+def make_template(inventory):
+    """Get a dictionary template from an inventory.
+    The template will contain all hierarchical informations and variables of
+    the groups, but not information of the hosts.
+    :param inventory: ansible.inventory.ini.InventoryParser
+    :return: (dict) a template of the inventory
+    """
+    template = {}
+    groups = [g for g in inventory.groups.values() if g.child_groups or g.vars]
+    for g in groups:
+        # Special case: all. Only keep variables
+        if g.name == 'all':
+            if g.vars:
+                template['all'] = {'vars': g.vars}
+            continue
+        # Special case: ungrouped. Ignore.
+        if g.name == 'ungrouped':
+            continue
+        template[g.name] = {}
+        if g.child_groups:
+            template[g.name]['children'] = [cg.name for cg in g.child_groups]
+        if g.vars:
+            template[g.name]['vars'] = g.vars
+    return template
+
+
+def parse_inventory_file(filename):
+    """Get an inventory from an INI file
+    :param filename: filename
+    :return: ansible.inventory.ini.InventoryParser
+    Raise AnsibleError if file is not correctly formatted.
+    """
+    groups = {'ungrouped': Group('ungrouped'), 'all': Group('all')}
+    inventory = InventoryParser(loader=None, groups=groups, filename=filename)
+    return inventory

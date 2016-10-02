@@ -1,5 +1,6 @@
 # Ansible Dynamic OpenStack Inventories
 
+
 ## Introduction
 
 This project provides scripts that dynamically generate Ansible inventory
@@ -8,8 +9,11 @@ inventory.
 
 Scripts:
 
-  - openstack_inventory.py: Generate inventory from OpenStack platform
-  - openstack_upload_metadata.py: Populate metadata to VMs matching an existing inventory
+  - openstack_inventory.py: Generates inventory from OpenStack platform
+  - openstack_upload_metadata.py: Populates metadata to VMs matching an
+                                  existing inventory
+  - openstack_create.py: Generates VMs on OpenStack platform based on an
+                         existing inventory
 
 
 ## Installation
@@ -20,13 +24,23 @@ Scripts:
     ```
 - Use the examples in the config folder to create your own configuration files
   
-  IMPORTANT: If 'ansible_private_key_file' is specified,
+  *IMPORTANT*: If 'ansible_private_key_file' is specified,
              Make sur that all private keys are stored in the 'key_folder'.
 
-  NOTE: If OpenStack credentials are not specified in the config file, user must 
-        specify them in environment variables (e.g. source openrc.sh)
+  *NOTE*: If OpenStack credentials are not specified in the config file, user
+          must specify them in environment variables (e.g. source openrc.sh)
+
+- The scripts will search in following locations for the configuration file
+by the order:
+
+    - Current folder
+    - .ansible/
+    - ~/.ansible/
+    - /etc/ansible/
+
 
 ## Usage
+
 
 ### 1. openstack_inventory.py:
 
@@ -39,21 +53,47 @@ Scripts:
     ansible -i openstack_inventory.py all -vvv -m ping
     ```
 
+
 ### 2. openstack_upload_metadata.py:
 
-- Make sur that the existing VMs on OpenStack platform match their name in the inventory
+- Updates metadata for existing VMs based on an Ansible inventory (INI) file.
+Will also set correspondent metadata and create a template file.
 
-- Populate VMs' metadata:
-    ```sh
-    ./openstack_upload_metadata.py <inventory_file>
-    ```
-
-- More options on openstack_upload_metadata.py:
+- Usage:
     ```sh
     ./openstack_upload_metadata.py [-o template] [--no-update] <inventory_file>
         -o template, --out-template template
                               Save the template of the inventory in a file
         -n, --no-update       If set, do not update metadata of the VMs
     ```
-    
 
+- *Note* Make sur that the existing VMs on OpenStack platform match their name
+in the inventory
+
+
+### 3. openstack_create.py:
+
+- Creates VMs on OpenStack based on an Ansible inventory (INI) file. Will also
+set correspondent metadata and create a template file.
+
+- Usage:
+    ```sh
+    ./openstack_upload_metadata.py [-o template] <inventory_file>
+        -o template, --out-template template
+                              Save the template of the inventory in a file
+    ```
+
+- The script searches for following variables for each host in the inventory:
+    - **openstack_flavor_id**: (required) VM Flavor
+    - **openstack_image_id**: (required) VM Image
+    - **openstack_network_id**: (required) VM's network. Must be in the same IP
+                                range as VM's IP
+    - **openstack_security_groups**: (optional) VM's security groups, separated
+                                     by comma (,)
+    - **openstack_keypair_id**: (optional) VM SSH key name.
+
+  These variables can be put in group vars or host vars, with the laters
+overriding the formers.
+
+- *Note*: If "ansible_private_key_file" and "openstack_keypair_id" are defined
+for a host, the script will use "ansible_private_key_file".

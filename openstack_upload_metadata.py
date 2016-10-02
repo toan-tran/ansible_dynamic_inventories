@@ -43,17 +43,6 @@ from ansible.inventory.ini import InventoryParser
 from utils import *
 
 
-def parse_inventory(filename):
-    """Get an inventory from an INI file
-    :param filename: filename
-    :return: ansible.inventory.ini.InventoryParser
-    Raise AnsibleError if file is not correctly formatted.
-    """
-    groups = {'ungrouped': Group('ungrouped'), 'all': Group('all')}
-    inventory = InventoryParser(loader=None, groups=groups, filename=filename)
-    return inventory
-
-
 def set_metadata(configs, inventory):
     "Set VM metadata based on an inventory"
 
@@ -95,32 +84,6 @@ def set_metadata(configs, inventory):
         nova.servers.set_meta(info['server'], meta)
 
 
-def make_template(inventory):
-    """Get a dictionary template from an inventory.
-    The template will contain all hierarchical informations and variables of
-    the groups, but not information of the hosts.
-    :param inventory: ansible.inventory.ini.InventoryParser
-    :return: (dict) a template of the inventory
-    """
-    template = {}
-    groups = [g for g in inventory.groups.values() if g.child_groups or g.vars]
-    for g in groups:
-        # Special case: all. Only keep variables
-        if g.name == 'all':
-            if g.vars:
-                template['all'] = {'vars': g.vars}
-            continue
-        # Special case: ungrouped. Ignore.
-        if g.name == 'ungrouped':
-            continue
-        template[g.name] = {}
-        if g.child_groups:
-            template[g.name]['children'] = [cg.name for cg in g.child_groups]
-        if g.vars:
-            template[g.name]['vars'] = g.vars
-    return template
-
-
 def get_args():
     parser = argparse.ArgumentParser(description='OpenStack upload metadata')
     parser.add_argument('-o', '--out-template', metavar='template', 
@@ -131,14 +94,6 @@ def get_args():
                         help="If set, do not update metadata of the VMs")
 
     args = parser.parse_args()
-    return args
-
-
-def main():
-    args = get_args()
-    if len(sys.argv) < 2:
-        print "Usage: %s <inventory_filename>" % sys.argv[0]
-        exit(0)
     filename = args.inventory
     if not os.path.exists(filename):
         print "ERROR: File %s does not exists" % filename
@@ -146,6 +101,12 @@ def main():
     if not os.path.isfile(filename):
         print "ERROR: %s is not a file" % filename
         exit(0)
+    return args
+
+
+def main():
+    args = get_args()
+    filename = args.inventory
     configs = get_config()
     inventory = parse_inventory(filename)
     if args.out_template:
