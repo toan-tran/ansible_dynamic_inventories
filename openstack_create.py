@@ -103,6 +103,9 @@ def _create_vm(client, host, metadata_namespace=DEFAULT_METADATA_NAMESPACE):
     groups = [gr.name for gr in host.groups if gr.name not in ['ungrouped', 'all']]
     if groups:
         meta[metadata_namespace + "groups"] = ','.join(groups)
+    else:
+        meta[metadata_namespace + "groups"] = ['ungrouped']
+
     for key, value in host.vars.items():
         meta[metadata_namespace + key] = str(value)
     # Add "ansible_private_key_file" when openstack_keypair_id is used
@@ -120,47 +123,6 @@ def _create_vm(client, host, metadata_namespace=DEFAULT_METADATA_NAMESPACE):
 def _delete_vm(client, vm):
     "Delete VM"
     client.servers.delete(vm)
-
-
-def update_metadata(configs, inventory):
-    "Update VMs' metadata based on an inventory"
-
-    nova = get_client(configs)
-    server_list = nova.servers.list()
-    default_section = configs.get("Default", {})
-    namespace = default_section.get("metadata_namespace",
-                                    DEFAULT_METADATA_NAMESPACE)
-    host_indicator = default_section.get("host_indicator", "name")
-    if host_indicator not in HOST_INDICATORS:
-        raise Exception("ERROR: Invalid host_indicator")
-
-    server_infos = {}
-    for s in server_list:
-        server_infos[getattr(s, host_indicator)] = {'server': s, 'groups': [], 'vars': {}}
-
-    for hname, host in inventory.hosts.items():
-        if hname not in server_infos:
-            raise Exception("Host %s is not found on cloud." % hname)
-        server_infos[hname]['vars'] = host.vars
-
-    for gname, group in inventory.groups.items():
-        for host in group.hosts:
-            server_infos[host.name]['groups'].append(group.name)
-
-    for indicator, info in server_infos.items():
-        # If there is no group for this server, then it does not belong
-        # to our playbook
-        if not info['groups']:
-            continue
-        # Special case: Ansible add all hosts in an 'ungrouped' group
-        # We need to remove all hosts that already have at least one group
-        if (len(info['groups']) > 1) and ('ungrouped' in info['groups']):
-            info['groups'].remove('ungrouped')
-        meta = {}
-        meta[namespace + "groups"] = ','.join(info['groups'])
-        for key, value in info['vars'].items():
-            meta[namespace + key] = str(value)
-        nova.servers.set_meta(info['server'], meta)
 
 
 def get_args():
