@@ -76,28 +76,28 @@ def _create_vm(client, host, metadata_namespace=DEFAULT_METADATA_NAMESPACE):
     :param client: novaclient.v2.client.Client object
     :param host: ansible.inventory.host.Host object
     """
-    vm_info = {}
-    vm_info.update(host.get_group_vars())
-    vm_info.update(host.get_vars())
-    if ("openstack_image_id" not in vm_info):
+    host_info = {}
+    host_info.update(host.get_group_vars())
+    host_info.update(host.get_vars())
+    if ("openstack_image_id" not in host_info):
         raise Exception("ERROR: openstack_image_id is defined")
-    if ("openstack_flavor_id" not in vm_info):
+    if ("openstack_flavor_id" not in host_info):
         raise Exception("ERROR: openstack_image_id is not defined")
-    if ("openstack_network_id" not in vm_info):
+    if ("openstack_network_id" not in host_info):
         raise Exception("ERROR: openstack_network_id is not defined")
 
     name = host.name
-    image = vm_info["openstack_image_id"]
-    flavor = vm_info["openstack_flavor_id"]
-    nics = [{"net-id": vm_info["openstack_network_id"],
+    image = host_info["openstack_image_id"]
+    flavor = host_info["openstack_flavor_id"]
+    nics = [{"net-id": host_info["openstack_network_id"],
              "v4-fixed-ip": host.address}]
-    security_groups = vm_info.get("openstack_security_groups")
+    security_groups = host_info.get("openstack_security_groups")
     if security_groups:
         security_groups = security_groups.split(",")
-    if "ansible_private_key_file" in vm_info:
-        key_name = os.path.basename(vm_info["ansible_private_key_file"])
+    if "ansible_private_key_file" in host_info:
+        key_name = os.path.basename(host_info["ansible_private_key_file"])
     else:
-        key_name = vm_info.get("openstack_keypair_id")
+        key_name = host_info.get("openstack_keypair_id")
     # Update VM's metadata
     meta = {}
     groups = [gr.name for gr in host.groups if gr.name not in ['ungrouped', 'all']]
@@ -108,9 +108,8 @@ def _create_vm(client, host, metadata_namespace=DEFAULT_METADATA_NAMESPACE):
 
     for key, value in host.vars.items():
         meta[metadata_namespace + key] = str(value)
-    # Add "ansible_private_key_file" when openstack_keypair_id is used
-    if "ansible_private_key_file" not in host.vars:
-        meta[metadata_namespace + "ansible_private_key_file"] = key_name
+    # Update "ansible_private_key_file" metadata
+    meta[metadata_namespace + "ansible_private_key_file"] = key_name
 
     print("\nCreate VM: name=%-10s flavor=%-6s image=%-20s key_name=%-10s security_groups=%s nics=%s metadata=%s\n" %
           (name, flavor, image, key_name, security_groups, nics, meta))

@@ -5,6 +5,8 @@
 host_indicator = id
 
 # Namespace of the metadata to use as variables for Ansible
+# When the same tenant is used for more than one project,
+# each project should have its own config file and metadata_namespace
 # When user wants to put a host variable
 #   key: value
 # to a VM, he must set the VM's metadata as follows:
