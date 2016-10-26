@@ -86,10 +86,23 @@ def _create_vm(client, host, metadata_namespace=DEFAULT_METADATA_NAMESPACE):
     if ("openstack_network_id" not in host_info):
         raise Exception("ERROR: openstack_network_id is not defined")
 
+    # Get network ID
+    # TODO: optimize this part to avoid multiple calls to OpenStack
+    net_id = ''
+    net_list = client.networks.list()
+    for net in net_list:
+        if (net.id == host_info["openstack_network_id"] or 
+            net.label == host_info["openstack_network_id"]):
+            net_id = net.id
+            break
+    if not net_id:
+        raise Exception("Network '%s' does not exists" %
+                         host_info["openstack_network_id"])
+
     name = host.name
     image = host_info["openstack_image_id"]
     flavor = host_info["openstack_flavor_id"]
-    nics = [{"net-id": host_info["openstack_network_id"],
+    nics = [{"net-id": net_id,
              "v4-fixed-ip": host.address}]
     security_groups = host_info.get("openstack_security_groups")
     if security_groups:

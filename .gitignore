@@ -2,7 +2,7 @@ inventory/
 *.hosts
 *.conf
 *.template
-
+*.swp
 *.egg-info
 *.egg[s]
 *.log
