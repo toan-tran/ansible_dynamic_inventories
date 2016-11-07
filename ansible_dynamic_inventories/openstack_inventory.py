@@ -39,27 +39,24 @@ def get_inventory(configs):
         return {}
     server_list = nova.servers.list()
     default_section = configs.get("Default", {})
-    host_indicator = default_section.get("host_indicator", "id")
     namespace = default_section.get("metadata_namespace",
                                     DEFAULT_METADATA_NAMESPACE)
     key_folder = default_section.get("key_folder", DEFAULT_KEY_FOLDER)
     key_folder = os.path.abspath(os.path.expanduser(key_folder))
-    if host_indicator not in HOST_INDICATORS:
-        raise Exception("ERROR: Invalid host_indicator")
 
     for s in server_list:
-        ansible_host = getattr(s, host_indicator)
+        inventory_hostname = s.name
         metadata = s.metadata
         group_key = namespace + 'groups'
         address = s.networks[s.networks.keys()[0]][0]
         if group_key in s.metadata:
             for group in s.metadata[group_key].split(','):
                 if group not in inventory:
-                    inventory[group] = {"hosts": [ansible_host]}
+                    inventory[group] = {"hosts": [inventory_hostname]}
                 elif "hosts" not in inventory[group]:
-                    inventory[group]["hosts"] = [ansible_host]
+                    inventory[group]["hosts"] = [inventory_hostname]
                 else:
-                    inventory[group]["hosts"].append(ansible_host)
+                    inventory[group]["hosts"].append(inventory_hostname)
             variables = {}
             # Take the first address as ansible_host by default.
             # If host has more than one addresses (e.g. multiple NICs,
@@ -73,7 +70,7 @@ def get_inventory(configs):
                 elif (key.startswith(namespace) and (key != group_key)):
                     keyname = key[len(namespace):]
                     variables[keyname] = value
-            inventory["_meta"]["hostvars"][ansible_host] = variables
+            inventory["_meta"]["hostvars"][inventory_hostname] = variables
     return inventory
 
 

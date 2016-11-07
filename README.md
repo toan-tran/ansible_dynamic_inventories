@@ -12,17 +12,17 @@ Scripts:
   - openstack_inventory.py: Generates inventory from OpenStack platform
   - openstack_upload_metadata.py: Populates metadata to VMs matching an
                                   existing inventory
-  - openstack_create.py: Generates VMs on OpenStack platform based on an
-                         existing inventory
+  - openstack_push.py: Generates VMs on OpenStack platform based on an
+                       existing inventory
 
 
 ## Installation
 
 - Install depedencies
 
-    ```sh
+    ````
     pip install -r requirements.txt
-    ```
+    ````
 
 - Use the examples in the config folder to create your own configuration files
   
@@ -49,15 +49,15 @@ by the order:
 
 - Test the output of the script:
 
-    ```sh
+    ````
     python openstack_inventory.py
-    ```
+    ````
 
 - Test the script to see result or test with Ansible:
 
-    ```sh
+    ````
     ansible -i openstack_inventory.py all -vvv -m ping
-    ```
+    ````
 
 
 ### 2. openstack_upload_metadata.py:
@@ -66,30 +66,44 @@ by the order:
 Will also set correspondent metadata and create a template file.
 
 - Usage:
-    ```sh
+
+    ````
     ./openstack_upload_metadata.py [-o template] [--no-update] <inventory_file>
+        inventory             Inventory file (INI format)
         -o template, --out-template template
                               Save the template of the inventory in a file
         -n, --no-update       If set, do not update metadata of the VMs
-    ```
+    ````
 
 - *Note* Make sur that the existing VMs on OpenStack platform match their name
 in the inventory
 
 
-### 3. openstack_create.py:
+### 3. openstack_push.py:
 
 - Creates VMs on OpenStack based on an Ansible inventory (INI) file. Will also
-set correspondent metadata and create a template file.
+set correspondent metadata and create a template file. If a new host is added
+into the inventory, a new VM is created with correspondent metadata. If a host
+is removed from the inventory, the correspondent VM will also be removed. All
+changes in groups/variables of existing hosts will also be updated into the
+metadata.
 
 - Usage:
-    ```sh
-    ./openstack_upload_metadata.py [-o template] <inventory_file>
+
+    ````
+    ./openstack_push.py [-h] [-o template] [-n] [-t] inventory
+        inventory             Inventory file (INI format)
+        -h, --help            show this help message and exit
         -o template, --out-template template
                               Save the template of the inventory in a file
-    ```
+        -n, --no-template     If set, will not create a template file, but save
+                              inherited variables in the hosts' metadata
+        -t, --trial           If set, will not update the platform, butshow the list
+                              of actions
+    ````
 
 - The script searches for following variables for each host in the inventory:
+
     - **openstack_flavor_id**: (required) VM Flavor
     - **openstack_image_id**: (required) VM Image
     - **openstack_network_id**: (required) VM's network. Must be in the same IP
