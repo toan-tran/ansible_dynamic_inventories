@@ -35,7 +35,7 @@ from ansible.inventory.ini import InventoryParser
 from utils import *
 
 
-def update_platform(configs, inventory, inherited=False, trial=False):
+def update_platform(configs, inventory, inherited=False, update=False):
     """Synchronize the VMs based on an inventory.
     This function also deletes VMs if their names are no longer in the
     inventory.
@@ -53,8 +53,8 @@ def update_platform(configs, inventory, inherited=False, trial=False):
                       variables will be stored in hosts' metadata
                       False (default) if a template is used, only host-specific
                       variables will be stored in hosts' metadata
-    :param trial: (bool) True will not update the OpenStack platform
-                  (default) False will update the OpenStack platform
+    :param update: (bool) True: update the OpenStack platform
+                   (default) False: only show actions, not update the platform
     """
     client = get_client(configs)
     host_list = inventory.hosts.values()
@@ -80,7 +80,7 @@ def update_platform(configs, inventory, inherited=False, trial=False):
     # Get all VMs that are associated with hosts in the Inventory
     mapped_vms = [scoped_vms[vm_name] for vm_name in scoped_vms
                                       if vm_name in hostnames]
-    if trial:
+    if not update:
         print("Create VMs: %s" % unmapped_inventory_hosts)
         print("Delete VMs: %s" % unmapped_vms)
         print("Update metadata for VMs: %s" % mapped_vms)
@@ -255,10 +255,9 @@ def get_args():
                         action='store_true',
                         help="If set, will not create a template file, but "
                              "save inherited variables in the hosts' metadata")
-    parser.add_argument('-t', '--trial',
+    parser.add_argument('-u', '--update',
                         action='store_true',
-                        help="If set, will not update the platform, but"
-                             "show the list of actions")
+                        help="If set, will update the platform")
 
     parser.add_argument('inventory', help="Inventory file (INI format)")
     args = parser.parse_args()
@@ -279,7 +278,9 @@ def main():
     if args.no_template:
         configs["Default"]["no_template"] = True
     inventory = parse_inventory_file(filename)
-    update_platform(configs, inventory, inherited=args.no_template, trial=args.trial)
+    update_platform(configs, inventory, inherited=args.no_template, update=args.update)
+    if not args.update:
+        print "If you are sure that the actions are correct, re-run the script with --update to update the platform."
     if args.out_template:
         print("Generating template file %s..." % args.out_template)
         template = make_template(inventory)
