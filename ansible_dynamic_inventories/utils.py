@@ -41,13 +41,19 @@ DEFAULT_METADATA_NAMESPACE = "ansible:"
 DEFAULT_KEY_FOLDER = "."
 
 
-def get_config():
-    """Get configs from known locations.
+def get_config(filename=None):
+    """Get configs from filename or known locations.
     If no file is present, no config is returned.
+    :param filename: config filename. If no filename is present,
+                     will search in known locations.
     :return: (dict) configs
              Empty dict if no file exists."""
 
-    for cf in CONF_FILES:
+    conf_files = []
+    if filename:
+        conf_files.append(filename)
+    conf_files.extend(CONF_FILES)
+    for cf in conf_files:
         if os.path.exists(os.path.expanduser(cf)):
             parser = ConfigParser()
             configs = dict()
