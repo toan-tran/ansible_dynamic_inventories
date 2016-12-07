@@ -24,8 +24,15 @@
 
 import json
 import os
+import sys
 
-from utils import *
+sys.path.insert(1,'..')
+
+
+from ansible_dynamic_inventories.utils import *
+from ansible_dynamic_inventories.utils.parse import *
+from ansible_dynamic_inventories.utils.ansible_utils import *
+from ansible_dynamic_inventories.utils.openstack_utils import *
 
 
 def get_inventory(configs):
@@ -34,7 +41,7 @@ def get_inventory(configs):
     :return: (dict) inventory
     """
     inventory = get_template(configs)
-    nova = get_client(configs)
+    nova = get_novaclient(configs)
     if not nova:
         return {}
     server_list = nova.servers.list()

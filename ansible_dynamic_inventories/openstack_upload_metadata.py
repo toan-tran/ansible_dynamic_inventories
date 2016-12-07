@@ -37,27 +37,28 @@ import argparse
 import os
 import sys
 
+sys.path.insert(1, '..')
+
 from ansible.inventory.group import Group
 from ansible.inventory.ini import InventoryParser
 
-from utils import *
+from ansible_dynamic_inventories.utils import *
+from ansible_dynamic_inventories.utils.parse import *
+from ansible_dynamic_inventories.utils.ansible_utils import *
+from ansible_dynamic_inventories.utils.openstack_utils import *
 
 
 def set_metadata(configs, inventory):
     "Set VM metadata based on an inventory"
 
-    nova = get_client(configs)
+    nova = get_novaclient(configs)
     server_list = nova.servers.list()
     default_section = configs.get("Default", {})
     namespace = default_section.get("metadata_namespace",
                                     DEFAULT_METADATA_NAMESPACE)
-    host_indicator = default_section.get("host_indicator", "id")
-    if host_indicator not in HOST_INDICATORS:
-        raise Exception("ERROR: Invalid host_indicator")
-
     server_infos = {}
     for s in server_list:
-        server_infos[getattr(s, host_indicator)] = {'server': s, 'groups': [], 'vars': {}}
+        server_infos[s.name] = {'server': s, 'groups': [], 'vars': {}}
 
     for hname, host in inventory.hosts.items():
         if hname not in server_infos:
@@ -68,7 +69,7 @@ def set_metadata(configs, inventory):
         for host in group.hosts:
             server_infos[host.name]['groups'].append(group.name)
 
-    for indicator, info in server_infos.items():
+    for sname, info in server_infos.items():
         # If there is no group for this server, then it does not belong
         # to our playbook
         if not info['groups']:
@@ -89,6 +90,9 @@ def get_args():
     parser.add_argument('-o', '--out-template', metavar='template', 
                         default=None,
                         help="Save the template of the inventory in a file")
+    parser.add_argument('-c', '--config', metavar='config',
+                        default=None,
+                        help="Configuration file")
     parser.add_argument('inventory', help="Inventory file (INI format)")
     parser.add_argument('-n', '--no-update', action='store_true',
                         help="If set, do not update metadata of the VMs")
@@ -107,8 +111,8 @@ def get_args():
 def main():
     args = get_args()
     filename = args.inventory
-    configs = get_config()
-    inventory = parse_inventory(filename)
+    configs = get_config(args.config)
+    inventory = parse_inventory_file(filename)
     if args.out_template:
         print("Generating template file %s..." % args.out_template)
         template = make_template(inventory)
