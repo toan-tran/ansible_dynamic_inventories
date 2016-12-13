@@ -26,8 +26,8 @@
 #
 
 from utils import *
-from utils import ansible_utils as a
-from utils import openstack_utils as o
+from utils import ansible_utils as au
+from utils import openstack_utils as ou
 
 
 class OpenStackInventoryManager(object):
@@ -38,10 +38,10 @@ class OpenStackInventoryManager(object):
         :param inventory: (ansible.inventory.ini.InventoryParser) Inventory object
         """
         self.configs = configs
-        self.nova = o.get_novaclient(configs)
-        self.cinder = o.get_cinderclient(configs)
+        self.client = ou.OpenStackClient(configs)
+        self.client.initiate_client()
 
-    def update_platform(self, inventory_file, inherited=False, update=False):
+    def update_platform(self, inventory_file, inherited=True, update=False):
         """Synchronize the VMs based on an inventory.
         This function also deletes VMs if their names are no longer in the
         inventory.
@@ -61,7 +61,7 @@ class OpenStackInventoryManager(object):
         :param update: (bool) True: update the OpenStack platform
                        (default) False: only show actions, not update the platform
         """
-        inventory = a.parse_inventory_file(inventory_file)
+        inventory = au.parse_inventory_file(inventory_file)
         hostnames = inventory.hosts.keys()
         host_list = inventory.hosts.values()
         if "openstack_namespace" in inventory.groups["all"].vars:
@@ -70,8 +70,9 @@ class OpenStackInventoryManager(object):
             default_section = self.configs.get("Default", {})
             namespace = default_section.get("metadata_namespace",
                                             DEFAULT_METADATA_NAMESPACE)
+        print "Namspace: %s" % namespace
         groups_metadata = namespace + "groups"
-        vm_list = self.nova.servers.list()
+        vm_list = self.client.nova.servers.list()
         scoped_vms = {}
         for vm in vm_list:
             if groups_metadata in vm.metadata:
@@ -85,31 +86,63 @@ class OpenStackInventoryManager(object):
         # Get all VMs that are associated with hosts in the Inventory
         mapped_vms = [scoped_vms[vm_name] for vm_name in scoped_vms
                                           if vm_name in hostnames]
+
+        # Volumes listed in the Inventory
+        inventory_volumes = {}
+        for host in host_list:
+            host_vars = au.get_host_variables(host, inherited=True)
+            for key, value in host_vars.items():
+                if key.startswith(ou.OPENSTACK_VOLUME_PREFIX):
+                    device = key[len(ou.OPENSTACK_VOLUME_PREFIX)+1:]
+                    inventory_volumes[host.name + '_' + device] = [host.name + '_' + device, host.name, device, value]
+        # Volumes on OpenStack platform that belong to our namespace
+        volume_list = self.client.cinder.volumes.list()
+        scoped_volumes = {}
+        volume_host_metadata = namespace + "host"
+        for vol in volume_list:
+            if volume_host_metadata in vol.metadata:
+                scoped_volumes[vol.name] = {'host': vol.metadata[volume_host_metadata],
+                                            'device': vol.metadata.get(namespace + "device"),
+                                            'volume': vol}
+
+        unmapped_inventory_volumes = {}
+        for inv_vol_name, inv_vol in inventory_volumes.items():
+            if inv_vol_name not in scoped_volumes:
+                unmapped_inventory_volumes[inv_vol_name] = inv_vol
+        unmapped_os_volumes = [scoped_volumes[vol_name]
+                                    for vol_name in scoped_volumes
+                                    if vol_name not in inventory_volumes]
+
         if not update:
             print("Create VMs: %s" % unmapped_inventory_hosts)
             print("Delete VMs: %s" % unmapped_vms)
             print("Update metadata for VMs: %s" % mapped_vms)
+            print("Create volumes: %s" % unmapped_inventory_volumes)
+            print("Delete volumes: %s" % [vol['volume'].name for vol in unmapped_os_volumes])
             return
     
         for host in unmapped_inventory_hosts:
-            self._create_vm(host, namespace, inherited=inherited)
+            self._create_vm(host, metadata_namespace=namespace, inherited=inherited)
     
         for vm in unmapped_vms:
             self._delete_vm(vm)
-    
+
         for vm in mapped_vms:
-            self._update_metadata(vm, inventory.hosts[vm.name],
-                                  metadata_namespace=namespace,
-                                  inherited=inherited)
+            self.client.update_metadata(vm, inventory.hosts[vm.name], metadata_namespace=namespace)
+
+        for vol in unmapped_os_volumes:
+            self._delete_volume(vol['volume'])    
 
         # Refresh the list of VMs
-        vm_list = self.nova.servers.list()
+        vm_list = self.client.nova.servers.list()
         scoped_vms = {}
         for vm in vm_list:
-            if vm_name in inventory.hosts and groups_metadata in vm.metadata:
+            if vm.name in inventory.hosts and groups_metadata in vm.metadata:
                 scoped_vms[vm.name] = vm
         for vm_name, vm in scoped_vms.items():
-            self._update_volumes(vm, inventory.hosts[vm_name])
+            self._update_volumes(vm, inventory.hosts[vm_name], namespace)
+
+        print("OpenStackInventoryManager: update platform done")
 
     def _create_vm(self, host, metadata_namespace=DEFAULT_METADATA_NAMESPACE,
                    inherited=False):
@@ -121,15 +154,15 @@ class OpenStackInventoryManager(object):
                           groups and variables will be stored in hosts' metadata
         :param return: new vm
         """
-        o.create_vm(self.nova, host, metadata_namespace, inherited)
+        self.client.create_vm(host, metadata_namespace, inherited)
 
     def _delete_vm(self, vm):
         """Delete a VM from the OpenStack platform.
         :param vm: (novaclient.v2.servers.Server) server to delete
         """
-        o.delete_vm(self.nova, vm)
+        self.client.delete_vm(vm)
 
-    def _update_metadata(self, vm, host, metadata_namespace, inherited=False):
+    def _update_metadata(self, vm, host, metadata_namespace=DEFAULT_METADATA_NAMESPACE, inherited=True):
         """Update metadata of the VM to match the correspondent host.
         :param vm: (novaclient.v2.servers.Server) server to update
         :param host: (ansible.inventory.host.Host) Host declared in the inventory,
@@ -140,12 +173,18 @@ class OpenStackInventoryManager(object):
                           False (default) if a template is used, only host-specific
                           groups and variables will be stored in hosts' metadata
         """
-        o.update_metadata(self.nova, vm, host, metadata_namespace, inherited)
+        self.client.update_metadata(vm, host, metadata_namespace, inherited)
 
-    def _update_volumes(self, vm, host):
+    def _delete_volume(self, volume):
+        """Delete a volume from the OpenStack platform.
+        :param volume: (cinderclient.v2.volumes.Volume) volume to delete
+        """
+        self.client.delete_volume(volume)
+    
+    def _update_volumes(self, vm, host, metadata_namespace=DEFAULT_METADATA_NAMESPACE):
         """Create and attach volumes to VM following the description of a host
         in an inventory.
         :param vm: VM to attach volumes to
         :param host: inventory host with description of volumes
         """
-        o.update_volumes(self.cinder, vm, host)
+        self.client.update_volumes(vm, host, metadata_namespace=metadata_namespace)

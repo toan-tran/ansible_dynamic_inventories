@@ -71,13 +71,14 @@ def parse_inventory_file(filename):
     return inventory
 
 
-def get_host_groups(host, inherited=False):
+def get_host_groups(host, inherited=True):
     """Get all groups of the host. Will ignore 'ungrouped' and 'all'.
     :param host: ansible.inventory.host.Host object
-    :param inherited: (bool) True if no template is used, all hierarchical
-                      groups will be stored in hosts' metadata
-                      False (default) if a template is used, only direct
-                      groups will be stored in hosts' metadata
+    :param inherited: (bool)(default) True if no template is used, all
+                      inherited groups and variables will be stored in
+                      host's metadata
+                      False if a template is used, only host-specific
+                      groups and variables will be stored in hosts' metadata
     :return: list of (string) group names
     """
     if inherited:
@@ -87,13 +88,13 @@ def get_host_groups(host, inherited=False):
     return [gr.name for gr in groups if gr.name not in ['ungrouped', 'all']]
 
 
-def get_host_variables(host, inherited=False):
+def get_host_variables(host, inherited=True):
     """Get all variables of the host and its groups
     :param host: ansible.inventory.host.Host object
-    :param inherited: (bool) True if no template is used, groups' variables
-                      will also be stored in hosts' metadata
-                      False (default) if a template is used, only host-specific
-                      variables will be stored in hosts' metadata
+    :param inherited: (bool) True if no template is used, all hierarchical
+                      groups will be stored in hosts' metadata
+                      False (default) if a template is used, only direct
+                      groups will be stored in hosts' metadata
     :return: (dict) host variables as format key: value
     """
     if not inherited:
@@ -103,14 +104,15 @@ def get_host_variables(host, inherited=False):
     return host_vars
 
 
-def create_host_metadata(host, metadata_namespace, inherited=False):
+def create_host_metadata(host, metadata_namespace, inherited=True):
     """Create metadata correspondent to a host in an inventory.
     :param host: (ansible.inventory.host.Host) Host declared in the
                  Ansible inventory
     :param metadata_namespace: (string) namespace of the project
-    :param inherited: (bool) True if no template is used, all inherited groups
-                      and variables will be stored in hosts' metadata
-                      False (default) if a template is used, only host-specific
+    :param inherited: (bool)(default) True if no template is used, all
+                      inherited groups and variables will be stored in
+                      host's metadata
+                      False if a template is used, only host-specific
                       groups and variables will be stored in hosts' metadata
     :return: (dict) full metadata correspondent to the host's variables
     """
