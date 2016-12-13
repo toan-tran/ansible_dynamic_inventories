@@ -198,12 +198,12 @@ class OpenStackClient(object):
         print("Delete VM %s" % vm.name)
         self.nova.servers.delete(vm)
         # Delete attached volumes
-        for vol in current_attached_volumes:
+        for volume in current_attached_volumes:
             try:
-                print("Delete volume: name=%-10s" % vol.name)
-                self.cinder.volumes.delete(vol.id)
+                print("Delete volume: name=%-10s" % volume.volumeId)
+                self.cinder.volumes.delete(volume.volumeId)
             except Exception as e:
-                print("Warning: Deleting volume %s: %s" % (vol.name,e))
+                print("Warning: Deleting volume %s: %s" % (volume.volumeId, e))
     
     def update_metadata(self, vm, host, metadata_namespace, inherited=True):
         """Update metadata of the VM to match the correspondent host.
