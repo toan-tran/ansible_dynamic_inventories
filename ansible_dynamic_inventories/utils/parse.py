@@ -43,6 +43,5 @@ def get_config(filename=None):
             parser.read(os.path.expanduser(cf))
             for sec in parser.sections():
                 configs[sec] = dict(parser.items(sec))
-            print ("Found configuration file at: %s" % cf)
             return configs
     return {}

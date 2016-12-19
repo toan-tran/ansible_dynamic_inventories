@@ -41,7 +41,9 @@ def get_inventory(configs):
     :return: (dict) inventory
     """
     inventory = get_template(configs)
-    nova = get_novaclient(configs)
+    osclient = OpenStackClient(configs)
+    osclient.initiate_client()
+    nova = osclient.nova
     if not nova:
         return {}
     server_list = nova.servers.list()
@@ -77,6 +79,9 @@ def get_inventory(configs):
                 elif (key.startswith(namespace) and (key != group_key)):
                     keyname = key[len(namespace):]
                     variables[keyname] = value
+            # If 'ansible_private_key_file' is not explicitly declared, use VM's key_name
+            if "ansible_private_key_file" not in variables:
+                variables["ansible_private_key_file"] = os.path.join(key_folder, s.key_name)
             inventory["_meta"]["hostvars"][inventory_hostname] = variables
     return inventory
 

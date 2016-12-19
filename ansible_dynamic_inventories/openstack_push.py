@@ -37,7 +37,7 @@ from ansible_dynamic_inventories.utils.parse import get_config
 
 def get_args():
     parser = argparse.ArgumentParser(description=
-                        'Create VMs on OpenStack using an ANsible inventory')
+                        'Create VMs on OpenStack using an Ansible inventory')
     parser.add_argument('-c', '--config', metavar='config',
                         default=None,
                         help="Configuration file")

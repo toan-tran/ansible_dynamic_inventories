@@ -60,6 +60,9 @@ class OpenStackClient(object):
     "Class for interact with OpenStack platform"
 
     def __init__(self, configs):
+        """Initiate client.
+        configs: (dict) key-value configuration
+        """
         self.configs = configs
         self._validate_config()
         self.nova = None
@@ -320,21 +323,3 @@ class OpenStackClient(object):
                         raise VolumeAttachmentError("Cannot attach volumes: %s" % e)
                     print "VM is not yet ready. Wait for 30 seconds"
                     sleep(30)
-
-    def create_volume(self, vm, host, metadata_namespace=DEFAULT_METADATA_NAMESPACE):
-        """Create and attach volumes to VM following the description of a host
-        in an inventory.
-        Host volume must be described in host vars. Syntax: 
-            <device_name>=<volume_size_GB>[,volume_type]
-            e.g. vdb=10,standard
-        This function will create a volume with name <vm_name>_<device_name> and
-        attach to the vm as <device_name>
-        Will not check wether the volume_type exists or not
-        If the VM already has a volume attached to the current device, then change
-        its name if necessary.
-        If the VM a volume does not attach to any device listed in host var, then
-        the volume will be deleted
-        :param vm: VM to attach volumes to
-        :param host: inventory host with description of volumes
-        """
-        pass
